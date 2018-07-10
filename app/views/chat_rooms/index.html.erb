@@ -1,0 +1,76 @@
+<% if user_signed_in? %>
+<%= current_user.email %> / <%= link_to 'log out', destroy_user_session_path, method: "delete" %>
+<% else %>
+<%= link_to 'log in', new_user_session_path %>
+<% end %>
+<h1>Chat Rooms</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>방 제목</th>      
+      <th>인원수</th>
+      <th>방장</th>
+    </tr>
+  </thead>
+
+  <tbody class="chat_room_list">
+    <% @chat_rooms.reverse.each do |chat_room| %>
+      <tr>
+        <td><%= chat_room.title %></td> <!-- 현재 몇 명의 인원이 있는지 / 최대치 -->
+        <td><span class="current<%= chat_room.id %>"><%= chat_room.admissions.size %></span>/ <%= chat_room.max_count %></td>
+        <td><%= chat_room.master_id %></td>
+        <td><%= link_to 'Show', chat_room %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+
+<br>
+
+<%= link_to 'New Chat Room', new_chat_room_path %>
+
+<script>
+    // function 만들기!
+  $(document).on('ready', function() {
+        // 방이 만들어 졌을 때, 
+        // 방에 대한 데이터를 받아서 방 목록에 추가해주는 js function
+        
+           // 방 만들어줘 라고 작동되면 chat_room_list에 추가해주면 됨!
+        function room_created(data) {
+          $('.chat_room_list').prepend(`
+            <tr>  //그 위치에서  // 있던 것에 더한다.
+              <td>${data.title}</td> 
+              <td><span class="current${data.id}">0</span>/${data.max_count}</td>
+              <td>${data.master_id}</td>
+              <td><a href="/chat_rooms/${data.id}">Show</a></td>
+            </tr>
+          `);
+            alert("방이 추가되었습니다.");
+          }
+          
+          function user_joined(data) {
+            var current = $(`.current${data.chat_room_id}`);
+                            //current의 text를 가져와서 인트로 바꾸고 1을 더함.
+            current.text(parseInt(current.text()) + 1);
+                  // 꺼내서 1씩 증가시켜줌.
+          }
+                        // 뭔갈 만들어서 pusher에다 넣었음.
+          var pusher = new Pusher('<%= ENV["Pusher_key"] %>', {
+            cluster: "<%= ENV["Pusher_cluster"] %>",
+            encrypted: true
+          });
+                                        // 채널       //이벤트 (아래)
+          var channel = pusher.subscribe('chat_room');
+          
+          channel.bind('create', function(data) {
+            console.log(data);      //models/chat_room.rb
+            room_created(data);
+           });
+          channel.bind('join', function(data) {
+            console.log(data);    // {chat_room_id: 10}   가 확인됨!
+            user_joined(data);
+          });
+  });
+  
+</script>
